@@ -1,0 +1,1 @@
+kysely-codegen --dialect=postgres --env-file=./.env --out-file=./src/database/types.ts --include-pattern="(prosper|constants|auth).*"
