@@ -5,9 +5,11 @@
     "jsr:@sallai/iro@^1.0.3": "1.0.4",
     "jsr:@std/assert@1": "1.0.8",
     "jsr:@std/async@^1.0.9": "1.0.9",
+    "jsr:@std/bytes@^1.0.2": "1.0.4",
     "jsr:@std/cli@*": "1.0.6",
     "jsr:@std/cli@^1.0.6": "1.0.6",
     "jsr:@std/internal@^1.0.5": "1.0.5",
+    "jsr:@std/io@0.225": "0.225.0",
     "npm:@supabase/supabase-js@^2.46.1": "2.46.1",
     "npm:@types/express@*": "5.0.0",
     "npm:@types/express@4.17.15": "4.17.15",
@@ -38,7 +40,8 @@
     "@sallai/ask@2.0.2": {
       "integrity": "8a1d3cfe5f5a1d4b1e66412c7537f8879b8e70b949076ae9d2e05cff4a82ab42",
       "dependencies": [
-        "jsr:@sallai/iro"
+        "jsr:@sallai/iro",
+        "jsr:@std/io"
       ]
     },
     "@sallai/iro@1.0.4": {
@@ -53,11 +56,20 @@
     "@std/async@1.0.9": {
       "integrity": "c6472fd0623b3f3daae023cdf7ca5535e1b721dfbf376562c0c12b3fb4867f91"
     },
+    "@std/bytes@1.0.4": {
+      "integrity": "11a0debe522707c95c7b7ef89b478c13fb1583a7cfb9a85674cd2cc2e3a28abc"
+    },
     "@std/cli@1.0.6": {
       "integrity": "d22d8b38c66c666d7ad1f2a66c5b122da1704f985d3c47f01129f05abb6c5d3d"
     },
     "@std/internal@1.0.5": {
       "integrity": "54a546004f769c1ac9e025abd15a76b6671ddc9687e2313b67376125650dc7ba"
+    },
+    "@std/io@0.225.0": {
+      "integrity": "c1db7c5e5a231629b32d64b9a53139445b2ca640d828c26bf23e1c55f8c079b3",
+      "dependencies": [
+        "jsr:@std/bytes"
+      ]
     }
   },
   "npm": {

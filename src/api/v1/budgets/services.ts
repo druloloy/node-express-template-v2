@@ -1,6 +1,6 @@
 import { db } from '../../../database/index.ts';
 import { sql } from 'kysely';
-import { z } from 'zod';
+import { number, z } from 'zod';
 
 import {
     BudgetMetadataInputSchema,
@@ -8,6 +8,7 @@ import {
 } from '../../../utils/schema.ts';
 import { generateRandomID } from '../../../utils/gen-id.ts';
 import isPeriodRefreshable from '../../../utils/period-refreshable.ts';
+import { PeriodType } from '../../../database/types.ts';
 
 const queryBudgetsByUser = (
     profile_id: z.infer<typeof ProfileIdSchema>,
@@ -51,7 +52,6 @@ export const getAllUserBudgets = async (
         'prosper.budget_metadata.name',
         'prosper.budget_metadata.assigned_amount',
         'prosper.budget_metadata.period',
-        'prosper.budget_metadata.target_date',
         'constants.categories.name as category',
         'constants.currencies.code as currency',
         'prosper.wallet_amounts.amount',
@@ -65,36 +65,30 @@ export const getAllUserBudgets = async (
 
 export const getAllUserBudgetSummary = async (
     profile_id: z.infer<typeof ProfileIdSchema>,
+    period: z.infer<typeof BudgetMetadataInputSchema>['period'] = 'daily',
 ) => {
-    const totalAmount = await queryBudgetsByUser(profile_id)
-        .select(({ fn }) => [
-            fn.count('prosper.budget_metadata.id').as('wallet_count'),
-            sql`ROUND(SUM(CAST(assigned_amount AS DECIMAL)) / 100, 2)`.as(
-                'total_amount',
-            ),
-        ])
-        .executeTakeFirst();
 
-    const total = Number(totalAmount?.total_amount || 0);
+    // group by period 
+    const wallets = await queryBudgetsByUser(profile_id)
+                .where('prosper.budget_metadata.period', '=', period)
+                .select(({ fn }) => [
+                    'prosper.budget_metadata.name', 
+                    'prosper.budget_metadata.assigned_amount', 
+                    'prosper.budget_metadata.period', 
+                    'prosper.budget_metadata.id',
+                    'constants.currencies.code as currency',
+                    'constants.categories.name as category',
+                    sql`ROUND(CAST(amount AS DECIMAL) / 100, 2)`.as(
+                        'amount'
+                    ),
+                    sql`ROUND((CAST(amount AS DECIMAL) / 100) / CAST(assigned_amount AS DECIMAL) * 100, 2)`.as(
+                        'progress'
+                    ),
+                ])
+                .execute();
+    const totalAssignedAmount = wallets.reduce((acc, curr) => acc + Number(curr.assigned_amount), 0);
 
-    const statsByCat = await querySavingsByUser(profile_id)
-        .select(({ fn }) => [
-            'constants.categories.name as category',
-            sql`ROUND(SUM(amount) / 100.0, 2)::numeric`.as(
-                'amount',
-            ),
-            sql`ROUND(
-                (SUM(amount) * 100.0 / ${total * 100})::numeric,
-                2
-              )`.as('percentage'),
-            fn.count('prosper.savings_metadata.id').as('wallet_count'),
-        ])
-        .groupBy('category')
-        .execute();
-
-    const result = { ...totalAmount, statsByCat };
-
-    return result;
+    return {wallets, totalAssignedAmount, totalExpenses: wallets.reduce((acc, curr) => acc + Number(curr.amount), 0)};
 };
 
 export const createWallet = async (

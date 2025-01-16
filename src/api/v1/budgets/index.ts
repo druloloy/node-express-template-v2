@@ -1,18 +1,13 @@
 import { Router } from 'express';
-import { createResponse } from '../../../utils/response.ts';
-import { db } from '../../../database/index.ts';
+import { getAllBudgets, getBudgetsSummary } from './controller.ts';
 
 const router = Router();
 
-router.get('/', async (req: Request, res: Response) => {
-    const data = await db.selectFrom('prosper.budget_metadata').selectAll()
-        .execute();
 
-    return createResponse(res, {
-        data,
-        message: 'Fetched Succesfully',
-        status: 200,
-    });
-});
+router.get('/', getAllBudgets);
+router.get('/summary', getBudgetsSummary);
+// router.post('/', createSavings);
+// router.patch('/amount', updateAmount);
+// router.delete('/', removeWalletPermanently);
 
 export default router;
