@@ -1,6 +1,7 @@
 import { Kysely, sql } from 'kysely';
+import { DB } from '../types.ts';
 
-export async function up(db: Kysely<any>): Promise<void> {
+export async function up(db: Kysely<DB>): Promise<void> {
     // Create schema
     await db.schema
         .createSchema('prosper')
@@ -305,7 +306,7 @@ export async function up(db: Kysely<any>): Promise<void> {
         );
 }
 
-export async function down(db: Kysely<any>): Promise<void> {
+export async function down(db: Kysely<DB>): Promise<void> {
     // Drop tables in reverse order of creation
     await db.schema
         .withSchema('prosper')

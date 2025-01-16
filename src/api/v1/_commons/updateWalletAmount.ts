@@ -1,6 +1,6 @@
 import { db } from '../../../database/index.ts';
 import { sql } from 'kysely';
-import { generateRandomID } from '../../../utils/gen-id.ts';
+// import { generateRandomID } from '../../../utils/gen-id.ts';
 
 type UpdateWalletAmount = {
     (
