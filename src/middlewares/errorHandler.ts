@@ -3,6 +3,7 @@
 import { NextFunction, Request, Response } from 'express';
 import ApiError from '../utils/ApiError.ts';
 import { createResponse } from '../utils/response.ts';
+import { ZodError } from 'zod';
 
 const errorHandler = (
     err: Error & { status?: number },
@@ -10,18 +11,23 @@ const errorHandler = (
     res: Response,
     next: NextFunction,
 ) => {
-    let error = { ...err };
+    const error = { ...err };
     error.message = err.message;
 
-    if (err.name === 'CastError') {
-        const message = 'Address not found!';
-        error = new ApiError(404, message);
-    }
+    console.log(err);
 
-    return createResponse(res, {
-        message: err.message,
-        status: err.status || 500,
-    });
+    if (error.name === 'ZodError') {
+        const message = (error as ZodError).issues[0].message;
+        createResponse(res, {
+            message,
+            status: 400,
+        });
+    } else {
+        createResponse(res, {
+            message: err.message,
+            status: err.status || 500,
+        });
+    }
 };
 
 export default errorHandler;

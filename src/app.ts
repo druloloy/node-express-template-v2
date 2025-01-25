@@ -7,7 +7,8 @@ import errorHandler from './middlewares/errorHandler.ts';
 const app: Application = express();
 
 loadDefaultMiddlewares(app);
-loadServices(app);
-app.use(errorHandler);
+loadServices(app).then(() => {
+    app.use(errorHandler);
+});
 
 export default app;
