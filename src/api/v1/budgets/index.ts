@@ -1,13 +1,20 @@
 import { Router } from 'express';
-import { getAllBudgets, getBudgetsSummary } from './controller.ts';
+import {
+    createBudget,
+    getAllBudgets,
+    getBudgetsSummary,
+    removeBudgetPermanently,
+    updateBudget,
+    validateBudget,
+} from './controller.ts';
 
 const router = Router();
 
-
 router.get('/', getAllBudgets);
 router.get('/summary', getBudgetsSummary);
-// router.post('/', createSavings);
-// router.patch('/amount', updateAmount);
-// router.delete('/', removeWalletPermanently);
+router.post('/', createBudget);
+router.patch('/validate', validateBudget);
+router.patch('/', updateBudget);
+router.delete('/', removeBudgetPermanently);
 
 export default router;

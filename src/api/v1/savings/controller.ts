@@ -8,10 +8,10 @@ import {
 } from '../../../utils/schema.ts';
 import {
     createWallet,
-    deleteWallet,
     getAllUserSavings,
     getAllUserSavingsSummary,
 } from './services.ts';
+import deleteWallet from '../_commons/deleteWallet.ts';
 
 import updateWalletAmount from '../_commons/updateWalletAmount.ts';
 
@@ -57,8 +57,6 @@ export const getAllSavingsSummary: Controller = async (req, res, next) => {
 
 export const createSavings: Controller = async (req, res, next) => {
     try {
-        console.log(req.body);
-
         const {
             name,
             category_id,
@@ -102,10 +100,10 @@ export const createSavings: Controller = async (req, res, next) => {
 // TODO: Register transaction and transaction snapshots
 export const updateAmount: Controller = async (req, res, next) => {
     try {
-        const { amount, addFund } = req.body;
+        const { amount, doAddFund } = req.body;
         const { wallet_id } = req.query;
 
-        const convertedAmount = (addFund ? amount : -amount) * 100;
+        const convertedAmount = (doAddFund ? amount : -amount) * 100;
         const result = await updateWalletAmount(
             'savings',
             wallet_id as string,
@@ -116,8 +114,13 @@ export const updateAmount: Controller = async (req, res, next) => {
             throw new ApiError(404, 'Wallet not found');
         }
 
+        const isUpdated = result.affectedRows > 0;
+
         return createResponse(res, {
-            data: { affectedRows: String(result) },
+            data: {
+                isUpdated,
+                ...result,
+            },
             message: 'Wallet Updated Successfully',
             status: 200,
         });
@@ -129,19 +132,23 @@ export const updateAmount: Controller = async (req, res, next) => {
 // TODO: Add Ownership Verification. Only "creator" can delete a wallet
 export const removeWalletPermanently: Controller = async (req, res, next) => {
     try {
-        const { wallet_id } = req.query;
+        try {
+            const { wallet_id } = req.query;
 
-        const result = await deleteWallet(wallet_id as string);
+            const result = await deleteWallet('savings', wallet_id as string);
 
-        if (!result) {
-            throw new ApiError(500, 'Failed to delete wallet.');
+            if (!result) {
+                throw new ApiError(500, 'Failed to delete wallet.');
+            }
+
+            return createResponse(res, {
+                data: result,
+                message: 'Wallet Deleted Successfully',
+                status: 200,
+            });
+        } catch (error) {
+            next(error);
         }
-
-        return createResponse(res, {
-            data: result,
-            message: 'Wallet Deleted Successfully',
-            status: 200,
-        });
     } catch (error) {
         next(error);
     }

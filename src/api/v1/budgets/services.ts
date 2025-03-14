@@ -67,28 +67,38 @@ export const getAllUserBudgetSummary = async (
     profile_id: z.infer<typeof ProfileIdSchema>,
     period: z.infer<typeof BudgetMetadataInputSchema>['period'] = 'daily',
 ) => {
-
-    // group by period 
+    // group by period
     const wallets = await queryBudgetsByUser(profile_id)
-                .where('prosper.budget_metadata.period', '=', period)
-                .select(({ fn }) => [
-                    'prosper.budget_metadata.name', 
-                    'prosper.budget_metadata.assigned_amount', 
-                    'prosper.budget_metadata.period', 
-                    'prosper.budget_metadata.id',
-                    'constants.currencies.code as currency',
-                    'constants.categories.name as category',
-                    sql`ROUND(CAST(amount AS DECIMAL) / 100, 2)`.as(
-                        'amount'
-                    ),
-                    sql`ROUND((CAST(amount AS DECIMAL) / 100) / CAST(assigned_amount AS DECIMAL) * 100, 2)`.as(
-                        'progress'
-                    ),
-                ])
-                .execute();
-    const totalAssignedAmount = wallets.reduce((acc, curr) => acc + Number(curr.assigned_amount), 0);
+        .where('prosper.budget_metadata.period', '=', period)
+        .select(({ fn }) => [
+            'prosper.budget_metadata.name',
+            'prosper.budget_metadata.assigned_amount',
+            'prosper.budget_metadata.period',
+            'prosper.budget_metadata.id',
+            'constants.currencies.code as currency',
+            'constants.categories.name as category',
+            sql`ROUND(CAST(amount AS DECIMAL) / 100, 2)`.as(
+                'amount',
+            ),
+            sql`ROUND((CAST(amount AS DECIMAL) / 100) / CAST(assigned_amount AS DECIMAL) * 100, 2)`
+                .as(
+                    'progress',
+                ),
+        ])
+        .execute();
+    const totalAssignedAmount = wallets.reduce(
+        (acc, curr) => acc + Number(curr.assigned_amount),
+        0,
+    );
 
-    return {wallets, totalAssignedAmount, totalExpenses: wallets.reduce((acc, curr) => acc + Number(curr.amount), 0)};
+    return {
+        wallets,
+        totalAssignedAmount,
+        totalExpenses: wallets.reduce(
+            (acc, curr) => acc + Number(curr.amount),
+            0,
+        ),
+    };
 };
 
 export const createWallet = async (
@@ -170,13 +180,20 @@ export const validateWalletPeriod = async (wallet_id: string) => {
             ({ eb }) => [
                 'prosper.budget_metadata.refreshed_at',
                 'prosper.budget_metadata.period',
-                'prosper.wallet_references.id',
                 eb.cast(
                     'prosper.wallet_references.budget_wallet_id',
                     'text',
                 )
                     .as(
                         'budget_wallet_id',
+                    ),
+
+                eb.cast(
+                    'prosper.wallet_references.id',
+                    'text',
+                )
+                    .as(
+                        'id',
                     ),
             ],
         )
@@ -187,10 +204,10 @@ export const validateWalletPeriod = async (wallet_id: string) => {
         )
         .executeTakeFirst();
 
-    const period = reference!.period;
-    const lastRefresh = reference!.refreshed_at;
+    const period = reference?.period;
+    const lastRefresh = reference?.refreshed_at;
 
-    if (!isPeriodRefreshable(period, new Date(lastRefresh))) {
+    if (!isPeriodRefreshable(period!, new Date(lastRefresh!))) {
         return false;
     }
 
@@ -198,19 +215,21 @@ export const validateWalletPeriod = async (wallet_id: string) => {
     return await db.transaction().execute(async (tx) => {
         const updatedAmount = await tx.updateTable('prosper.wallet_amounts')
             .set({ amount: 0 })
-            .where('wallet_reference_id', '=', reference!.id)
+            .where('wallet_reference_id', '=', reference!.id as string)
             .returning('amount')
-            .executeTakeFirstOrThrow();
+            .executeTakeFirst();
+
+        console.log(updatedAmount);
 
         const updatedRefreshedAt = await tx.updateTable(
             'prosper.budget_metadata',
         )
             .set({ refreshed_at: new Date() })
             .where('id', '=', wallet_id)
-            .executeTakeFirstOrThrow();
+            .executeTakeFirst();
 
+        console.log(updatedRefreshedAt, updatedAmount);
         if (
-            BigInt(updatedAmount.amount) === BigInt(0) ||
             updatedRefreshedAt.numUpdatedRows == BigInt(0)
         ) {
             return false;
@@ -218,58 +237,4 @@ export const validateWalletPeriod = async (wallet_id: string) => {
 
         return true;
     });
-};
-
-export const deleteWallet = async (wallet_id: string) => {
-    const result = await db.transaction()
-        .execute(async (tx) => {
-            const reference = await tx
-                .selectFrom('prosper.wallet_references')
-                .select(
-                    ({ eb }) => [
-                        'prosper.wallet_references.id',
-                        eb.cast(
-                            'prosper.wallet_references.budget_wallet_id',
-                            'text',
-                        )
-                            .as(
-                                'budget_wallet_id',
-                            ),
-                    ],
-                )
-                .where(
-                    'prosper.wallet_references.budget_wallet_id',
-                    '=',
-                    wallet_id,
-                )
-                .executeTakeFirst();
-
-            if (!reference?.id) {
-                return false;
-            }
-
-            await sql`
-                delete from prosper.wallet_owners
-                where wallet_reference_id = ${BigInt(reference.id)};
-            `.execute(tx);
-
-            await sql`
-                delete from prosper.wallet_amounts
-                where wallet_reference_id = ${BigInt(reference.id)};
-            `.execute(tx);
-
-            await sql`
-                delete from prosper.wallet_references
-                where budget_wallet_id = ${BigInt(reference.id)};
-            `.execute(tx);
-
-            await sql`
-                delete from prosper.budget_metadata
-                where id = ${BigInt(reference.budget_wallet_id as string)};
-            `.execute(tx);
-
-            return true;
-        });
-
-    return result;
 };

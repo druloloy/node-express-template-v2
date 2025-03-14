@@ -11,6 +11,7 @@ type ResponseData =
     }
     | unknown[]
     | boolean
+    | number
     | null;
 
 type ResponseContent = {
