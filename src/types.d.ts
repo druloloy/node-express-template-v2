@@ -1,9 +1,9 @@
-// @deno-types="npm:@types/express"
 import type {
     NextFunction,
     Request as ExpressRequest,
     Response as ExpressResponse,
 } from 'express';
+import { type User as SupabaseUser } from '@supabase/supabase-js';
 
 type ResponseData =
     | {
@@ -20,8 +20,12 @@ type ResponseContent = {
     data?: ResponseData;
 };
 
+type User = SupabaseUser & {
+    profile_id: string;
+};
+
 type Controller = (
-    req: ExpressRequest,
+    req: ExpressRequest & { user?: User },
     res: ExpressResponse,
     next: NextFunction,
 ) => void;

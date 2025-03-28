@@ -7,7 +7,6 @@ const isPeriodRefreshable = (
     switch (period) {
         case 'daily': {
             const d = dayjs(date).add(1, 'day').toDate();
-            console.log(d);
             return dayjs().isAfter(d);
         }
         case 'weekly': {

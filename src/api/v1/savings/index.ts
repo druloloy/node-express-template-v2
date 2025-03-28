@@ -6,12 +6,13 @@ import {
     removeWalletPermanently,
     updateAmount,
 } from './controller.ts';
+import { auth } from '../../../middlewares/auth.ts';
 const router = Router();
 
-router.get('/', getAllSavings);
-router.get('/summary', getAllSavingsSummary);
-router.post('/', createSavings);
-router.patch('/amount', updateAmount);
-router.delete('/', removeWalletPermanently);
+router.get('/', auth, getAllSavings);
+router.get('/summary', auth, getAllSavingsSummary);
+router.post('/', auth, createSavings);
+router.patch('/amount', auth, updateAmount);
+router.delete('/', auth, removeWalletPermanently);
 
 export default router;

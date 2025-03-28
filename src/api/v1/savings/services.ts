@@ -47,7 +47,7 @@ export const getAllUserSavings = async (
     profile_id: z.infer<typeof ProfileIdSchema>,
 ) => {
     return await querySavingsByUser(profile_id).select([
-        'prosper.savings_metadata.id',
+        sql`CAST(prosper.savings_metadata.id AS TEXT)`.as('id'),
         'prosper.savings_metadata.name',
         'prosper.savings_metadata.priority',
         'prosper.savings_metadata.target_amount',

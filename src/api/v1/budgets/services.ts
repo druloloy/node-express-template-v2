@@ -48,7 +48,7 @@ export const getAllUserBudgets = async (
     profile_id: z.infer<typeof ProfileIdSchema>,
 ) => {
     return await queryBudgetsByUser(profile_id).select([
-        'prosper.budget_metadata.id',
+        sql`CAST(prosper.budget_metadata.id AS TEXT)`.as('id'),
         'prosper.budget_metadata.name',
         'prosper.budget_metadata.assigned_amount',
         'prosper.budget_metadata.period',
@@ -67,14 +67,13 @@ export const getAllUserBudgetSummary = async (
     profile_id: z.infer<typeof ProfileIdSchema>,
     period: z.infer<typeof BudgetMetadataInputSchema>['period'] = 'daily',
 ) => {
-    // group by period
     const wallets = await queryBudgetsByUser(profile_id)
         .where('prosper.budget_metadata.period', '=', period)
-        .select(({ fn }) => [
+        .select([
+            sql`CAST(prosper.budget_metadata.id AS TEXT)`.as('id'),
             'prosper.budget_metadata.name',
             'prosper.budget_metadata.assigned_amount',
             'prosper.budget_metadata.period',
-            'prosper.budget_metadata.id',
             'constants.currencies.code as currency',
             'constants.categories.name as category',
             sql`ROUND(CAST(amount AS DECIMAL) / 100, 2)`.as(
@@ -219,8 +218,6 @@ export const validateWalletPeriod = async (wallet_id: string) => {
             .returning('amount')
             .executeTakeFirst();
 
-        console.log(updatedAmount);
-
         const updatedRefreshedAt = await tx.updateTable(
             'prosper.budget_metadata',
         )
@@ -228,7 +225,6 @@ export const validateWalletPeriod = async (wallet_id: string) => {
             .where('id', '=', wallet_id)
             .executeTakeFirst();
 
-        console.log(updatedRefreshedAt, updatedAmount);
         if (
             updatedRefreshedAt.numUpdatedRows == BigInt(0)
         ) {

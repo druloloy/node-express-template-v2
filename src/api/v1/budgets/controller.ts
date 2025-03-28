@@ -14,14 +14,12 @@ import {
 import { createWallet } from './services.ts';
 import updateWalletAmount from '../_commons/updateWalletAmount.ts';
 import deleteWallet from '../_commons/deleteWallet.ts';
+import { verifyAccessToken } from '../../../utils/auth.ts';
+import { access } from 'node:fs';
 
 export const getAllBudgets: Controller = async (req, res, next) => {
     try {
-        const { profile_id } = req.query;
-
-        if (!profile_id) {
-            throw new ApiError(400, 'Profile ID is required');
-        }
+        const { profile_id } = req.user!;
 
         const result = await getAllUserBudgets(
             profile_id as string,
@@ -39,11 +37,8 @@ export const getAllBudgets: Controller = async (req, res, next) => {
 
 export const getBudgetsSummary: Controller = async (req, res, next) => {
     try {
-        const { profile_id, period } = req.query;
-
-        if (!profile_id) {
-            throw new ApiError(400, 'Profile ID is required');
-        }
+        const { profile_id } = req.user!;
+        const { period } = req.query;
 
         const parsedProfileId = await ProfileIdSchema.parseAsync(profile_id);
 
@@ -64,7 +59,7 @@ export const getBudgetsSummary: Controller = async (req, res, next) => {
 
 export const createBudget: Controller = async (req, res, next) => {
     try {
-        const { profile_id } = req.query;
+        const { profile_id } = req.user!;
         const {
             assigned_amount,
             category_id,
@@ -72,10 +67,6 @@ export const createBudget: Controller = async (req, res, next) => {
             period,
             preferred_currency_id,
         } = req.body;
-
-        if (!profile_id) {
-            throw new ApiError(400, 'Profile ID is required');
-        }
 
         const [parsedWalletMetadata, parsedProfileId] = await Promise.all([
             await BudgetMetadataInputSchema
@@ -126,20 +117,28 @@ export const validateBudget: Controller = async (req, res, next) => {
 
 export const updateBudget: Controller = async (req, res, next) => {
     try {
+        const { profile_id } = req.user!;
         const { amount } = req.body;
-        const { wallet_id } = req.query;
+        const { wallet_id, action } = req.query;
 
         if (!wallet_id) {
             throw new ApiError(400, 'Wallet ID is required');
         }
 
-        const result = await updateWalletAmount(
-            'budget',
-            wallet_id as string,
-            amount || 0,
-        );
+        if (action !== 'add' && action !== 'subtract') {
+            throw new ApiError(400, 'Invalid action');
+        }
 
-        console.log(result);
+        const convertedAmount = (action === 'add' ? amount : -amount) * 100;
+
+        const result = await updateWalletAmount(
+            {
+                amount: convertedAmount,
+                type: 'budget',
+                profile_id: profile_id as string,
+                wallet_id: wallet_id as string,
+            },
+        );
 
         const isUpdated = result.affectedRows > 0;
 
@@ -161,12 +160,20 @@ export const updateBudget: Controller = async (req, res, next) => {
 export const removeBudgetPermanently: Controller = async (req, res, next) => {
     try {
         try {
+            const { profile_id } = req.user!;
             const { wallet_id } = req.query;
 
-            const result = await deleteWallet('budget', wallet_id as string);
+            const result = await deleteWallet({
+                type: 'budget',
+                wallet_id: wallet_id as string,
+                profile_id: profile_id as string,
+            });
 
             if (!result) {
-                throw new ApiError(500, 'Failed to delete wallet.');
+                throw new ApiError(
+                    400,
+                    'Failed to delete wallet. Make sure you are the creator of this wallet.',
+                );
             }
 
             return createResponse(res, {
