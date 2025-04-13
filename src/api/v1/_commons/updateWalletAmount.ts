@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { db } from '../../../database/index.ts';
 import { sql } from 'kysely';
 import { ProfileIdSchema } from '../../../utils/schema.ts';
+import { createTransaction } from './createTransaction.ts';
 
 type UpdateWalletAmount = {
     (
@@ -10,12 +11,14 @@ type UpdateWalletAmount = {
             wallet_id: string;
             amount: number;
             profile_id: z.infer<typeof ProfileIdSchema>;
+            profile_name: string;
+            profile_username: string;
         },
     ): Promise<{ affectedRows: number; updatedAmount: number }>;
 };
 
 const updateWalletAmount: UpdateWalletAmount = async (
-    { type, wallet_id, amount, profile_id },
+    { type, wallet_id, amount, profile_id, profile_name, profile_username },
 ) => {
     let query = db
         .selectFrom('prosper.wallet_references')
@@ -105,19 +108,55 @@ const updateWalletAmount: UpdateWalletAmount = async (
         return { affectedRows: 0, updatedAmount: 0 };
     }
 
-    const result = await sql`
-        update prosper.wallet_amounts
-        set amount = ${BigInt(reference!.original_amount) + BigInt(amount)},
-            updated_at = now()
-        where prosper.wallet_amounts.wallet_reference_id = ${
-        BigInt(reference?.reference_id as string)
-    };
-    `.execute(db);
+    const result = await db.transaction().execute(async (tx) => {
+        const amountQuery = await tx.updateTable('prosper.wallet_amounts')
+            .set({
+                amount: BigInt(reference!.original_amount) + BigInt(amount),
+                updated_at: sql`now()`,
+            })
+            .where((eb) =>
+                eb(
+                    eb.cast(
+                        'prosper.wallet_amounts.wallet_reference_id',
+                        'text',
+                    ),
+                    '=',
+                    reference?.reference_id as string,
+                )
+            )
+            .executeTakeFirst();
 
-    return {
-        affectedRows: Number(result.numAffectedRows),
-        updatedAmount: Number(reference!.original_amount) + amount,
-    };
+        await createTransaction({
+            type,
+            wallet_id,
+            action: 'update',
+            amount: Number(reference!.original_amount) + amount,
+            updated_by_id: profile_id,
+            updated_by_name: `${profile_name} <${profile_username}>`,
+            transaction: tx,
+        });
+
+        return {
+            affectedRows: Number(amountQuery.numUpdatedRows),
+            updatedAmount: Number(reference!.original_amount) + amount,
+        };
+    });
+
+    return result;
+
+    // const result = await sql`
+    //     update prosper.wallet_amounts
+    //     set amount = ${BigInt(reference!.original_amount) + BigInt(amount)},
+    //         updated_at = now()
+    //     where prosper.wallet_amounts.wallet_reference_id = ${
+    //     BigInt(reference?.reference_id as string)
+    // };
+    // `.execute(db);
+
+    // return {
+    //     affectedRows: Number(result.numAffectedRows),
+    //     updatedAmount: Number(reference!.original_amount) + amount,
+    // };
 };
 
 export default updateWalletAmount;

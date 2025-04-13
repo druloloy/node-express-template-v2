@@ -1,4 +1,3 @@
-// @deno-types="npm:@types/express"
 import type { Response as ExpressResponse } from 'express';
 import { ResponseContent } from '../types.d.ts';
 

@@ -16,11 +16,11 @@ import deleteWallet from '../_commons/deleteWallet.ts';
 import updateWalletAmount from '../_commons/updateWalletAmount.ts';
 
 export const getAllSavings: Controller = async (req, res, next) => {
-    const { profile_id } = req.user!;
+    const { profile } = req.user!;
 
     try {
         const result = await getAllUserSavings(
-            profile_id as string,
+            profile.id as string,
         );
 
         return createResponse(res, {
@@ -35,10 +35,10 @@ export const getAllSavings: Controller = async (req, res, next) => {
 
 export const getAllSavingsSummary: Controller = async (req, res, next) => {
     try {
-        const { profile_id } = req.user!;
+        const { profile } = req.user!;
 
         const result = await getAllUserSavingsSummary(
-            profile_id as string,
+            profile.id as string,
         );
 
         return createResponse(res, {
@@ -62,7 +62,7 @@ export const createSavings: Controller = async (req, res, next) => {
             priority,
         } = req.body;
 
-        const { profile_id } = req.user!;
+        const { profile } = req.user!;
 
         const [parsedWalletMetadata, parsedProfileId] = await Promise.all([
             await SavingsMetadataInputSchema
@@ -74,12 +74,16 @@ export const createSavings: Controller = async (req, res, next) => {
                     preferred_currency_id,
                     priority,
                 }),
-            await ProfileIdSchema.parseAsync(profile_id),
+            await ProfileIdSchema.parseAsync(profile.id),
         ]);
 
         const result = await createWallet(
-            parsedProfileId,
-            parsedWalletMetadata,
+            {
+                profile_id: parsedProfileId,
+                walletData: parsedWalletMetadata,
+                profile_name: profile.name,
+                profile_username: profile.username,
+            },
         );
 
         return createResponse(res, {
@@ -96,7 +100,7 @@ export const createSavings: Controller = async (req, res, next) => {
 // TODO: Register transaction and transaction snapshots
 export const updateAmount: Controller = async (req, res, next) => {
     try {
-        const { profile_id } = req.user!;
+        const { profile } = req.user!;
         const { amount } = req.body;
         const { wallet_id, action } = req.query;
 
@@ -110,7 +114,9 @@ export const updateAmount: Controller = async (req, res, next) => {
                 type: 'savings',
                 wallet_id: wallet_id as string,
                 amount: convertedAmount,
-                profile_id: profile_id as string,
+                profile_id: profile.id,
+                profile_name: profile.name,
+                profile_username: profile.username,
             },
         );
 
@@ -137,13 +143,15 @@ export const updateAmount: Controller = async (req, res, next) => {
 export const removeWalletPermanently: Controller = async (req, res, next) => {
     try {
         try {
-            const { profile_id } = req.user!;
+            const { profile } = req.user!;
             const { wallet_id } = req.query;
 
             const result = await deleteWallet({
                 type: 'savings',
                 wallet_id: wallet_id as string,
-                profile_id: profile_id as string,
+                profile_id: profile.id,
+                profile_name: profile.name,
+                profile_username: profile.username,
             });
 
             if (!result) {

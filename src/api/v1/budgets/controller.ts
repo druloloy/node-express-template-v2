@@ -19,10 +19,10 @@ import { access } from 'node:fs';
 
 export const getAllBudgets: Controller = async (req, res, next) => {
     try {
-        const { profile_id } = req.user!;
+        const { profile } = req.user!;
 
         const result = await getAllUserBudgets(
-            profile_id as string,
+            profile.id as string,
         );
 
         return createResponse(res, {
@@ -37,10 +37,10 @@ export const getAllBudgets: Controller = async (req, res, next) => {
 
 export const getBudgetsSummary: Controller = async (req, res, next) => {
     try {
-        const { profile_id } = req.user!;
+        const { profile } = req.user!;
         const { period } = req.query;
 
-        const parsedProfileId = await ProfileIdSchema.parseAsync(profile_id);
+        const parsedProfileId = await ProfileIdSchema.parseAsync(profile.id);
 
         const result = await getAllUserBudgetSummary(
             parsedProfileId,
@@ -59,7 +59,7 @@ export const getBudgetsSummary: Controller = async (req, res, next) => {
 
 export const createBudget: Controller = async (req, res, next) => {
     try {
-        const { profile_id } = req.user!;
+        const { profile } = req.user!;
         const {
             assigned_amount,
             category_id,
@@ -77,12 +77,16 @@ export const createBudget: Controller = async (req, res, next) => {
                     period,
                     preferred_currency_id,
                 }),
-            await ProfileIdSchema.parseAsync(profile_id),
+            await ProfileIdSchema.parseAsync(profile.id),
         ]);
 
         const result = await createWallet(
-            parsedProfileId,
-            parsedWalletMetadata,
+            {
+                profile_id: parsedProfileId,
+                walletData: parsedWalletMetadata,
+                profile_name: profile.name,
+                profile_username: profile.username,
+            },
         );
 
         return createResponse(res, {
@@ -117,7 +121,7 @@ export const validateBudget: Controller = async (req, res, next) => {
 
 export const updateBudget: Controller = async (req, res, next) => {
     try {
-        const { profile_id } = req.user!;
+        const { profile } = req.user!;
         const { amount } = req.body;
         const { wallet_id, action } = req.query;
 
@@ -135,8 +139,10 @@ export const updateBudget: Controller = async (req, res, next) => {
             {
                 amount: convertedAmount,
                 type: 'budget',
-                profile_id: profile_id as string,
+                profile_id: profile.id as string,
                 wallet_id: wallet_id as string,
+                profile_name: profile.name,
+                profile_username: profile.username,
             },
         );
 
@@ -160,13 +166,15 @@ export const updateBudget: Controller = async (req, res, next) => {
 export const removeBudgetPermanently: Controller = async (req, res, next) => {
     try {
         try {
-            const { profile_id } = req.user!;
+            const { profile } = req.user!;
             const { wallet_id } = req.query;
 
             const result = await deleteWallet({
                 type: 'budget',
                 wallet_id: wallet_id as string,
-                profile_id: profile_id as string,
+                profile_id: profile.id as string,
+                profile_name: profile.name,
+                profile_username: profile.username,
             });
 
             if (!result) {

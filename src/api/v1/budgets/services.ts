@@ -8,7 +8,7 @@ import {
 } from '../../../utils/schema.ts';
 import { generateRandomID } from '../../../utils/gen-id.ts';
 import isPeriodRefreshable from '../../../utils/period-refreshable.ts';
-import { PeriodType } from '../../../database/types.ts';
+import { createTransaction } from '../_commons/createTransaction.ts';
 
 const queryBudgetsByUser = (
     profile_id: z.infer<typeof ProfileIdSchema>,
@@ -100,9 +100,27 @@ export const getAllUserBudgetSummary = async (
     };
 };
 
-export const createWallet = async (
-    profile_id: z.infer<typeof ProfileIdSchema>,
-    walletData: z.infer<typeof BudgetMetadataInputSchema>,
+type CreateWalletType = {
+    (params: {
+        profile_id: z.infer<typeof ProfileIdSchema>;
+        walletData: z.infer<typeof BudgetMetadataInputSchema>;
+        profile_name: string;
+        profile_username: string;
+    }): Promise<{
+        metadata_id: string;
+        wallet_reference_id: string;
+        wallet_amounts_id: string;
+        wallet_owners_id: string;
+    }>;
+};
+
+export const createWallet: CreateWalletType = async (
+    {
+        profile_id,
+        walletData,
+        profile_name,
+        profile_username,
+    },
 ) => {
     const {
         name,
@@ -155,6 +173,20 @@ export const createWallet = async (
                 wallet_type: 'budget',
             })
             .executeTakeFirstOrThrow();
+
+        await createTransaction({
+            type: 'budget',
+            wallet_id: metadata_id,
+            action: 'create',
+            updated_by_name: `${profile_name} <${profile_username}>`,
+            updated_by_id: profile_id,
+            transaction: tx,
+            amount: 0,
+            category_id,
+            name,
+            preferred_currency_id,
+            wallet_owners: [profile_id],
+        });
 
         return {
             metadata_id,

@@ -15,6 +15,7 @@ export async function up(db: Kysely<DB>): Promise<void> {
         CREATE TYPE wallet_type AS ENUM ('budget', 'savings');
         CREATE TYPE owner_type AS ENUM ('contributor', 'viewer', 'creator');
         CREATE TYPE period_type AS ENUM ('daily', 'weekly', 'monthly', 'annually');
+        CREATE TYPE transaction_action AS ENUM ('create', 'update', 'delete');
     `.execute(db)
         .then(() => console.log('Types created successfully'))
         .catch((error) => console.error('Error creating types:', error));
@@ -133,7 +134,7 @@ export async function up(db: Kysely<DB>): Promise<void> {
         .createTable('transaction_snapshots')
         .addColumn('id', 'bigint', (col) => col.primaryKey())
         .addColumn('type', sql`wallet_type`, (col) => col.notNull())
-        .addColumn('wallet_id', 'varchar(6)', (col) => col.notNull())
+        .addColumn('wallet_id', 'bigint', (col) => col.notNull())
         .addColumn('wallet_name', 'varchar(15)', (col) => col.notNull())
         .addColumn(
             'wallet_category_id',
@@ -145,7 +146,7 @@ export async function up(db: Kysely<DB>): Promise<void> {
             'integer',
             (col) => col.notNull().references('constants.currencies.id'),
         )
-        .addColumn('wallet_owners', 'json', (col) => col.notNull())
+        .addColumn('wallet_owners', sql`uuid[]`, (col) => col.notNull())
         .addColumn('amount', 'bigint', (col) => col.notNull())
         .addColumn('updated_by_name', 'varchar(15)', (col) => col.notNull())
         .addColumn(
@@ -178,7 +179,7 @@ export async function up(db: Kysely<DB>): Promise<void> {
             (col) =>
                 col.notNull().references('prosper.transaction_snapshots.id'),
         )
-        .addColumn('old_amount', 'bigint', (col) => col.notNull())
+        .addColumn('action', sql`transaction_action`, (col) => col.notNull())
         .addColumn(
             'updated_by',
             'uuid',
@@ -362,5 +363,6 @@ export async function down(db: Kysely<DB>): Promise<void> {
         DROP TYPE IF EXISTS wallet_type;
         DROP TYPE IF EXISTS user_type;
         DROP TYPE IF EXISTS period_type;
+        DROP TYPE IF EXISTS transaction_type;
     `.execute(db);
 }

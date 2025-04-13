@@ -24,3 +24,13 @@ export const BudgetMetadataInputSchema = z.object({
     period: z.enum(['annually', 'daily', 'monthly', 'weekly']),
     preferred_currency_id: z.number(),
 });
+
+export const TransactionSchema = z.object({
+    action: z.enum(['create', 'update', 'delete']),
+    type: z.enum(['budget', 'savings']),
+    wallet_id: z.string(),
+    updated_by_name: z.string().refine((value) => {
+        return /^(.*?)\s*<([^<>]+)>$/.test(value);
+    }),
+    updated_by_id: z.string().uuid(),
+});

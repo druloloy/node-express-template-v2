@@ -1,8 +1,8 @@
 import { Router } from 'express';
+import { getTransactionsSummary } from './controller.ts';
+import { auth } from '../../../middlewares/auth.ts';
 const router = Router();
 
-router.get('/', (req, res) => {
-    res.send('Hello World!');
-});
+router.get('/', auth, getTransactionsSummary);
 
 export default router;

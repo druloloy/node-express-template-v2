@@ -8,6 +8,7 @@ import {
     WalletOwnersInputSchema,
 } from '../../../utils/schema.ts';
 import { z } from 'zod';
+import { createTransaction } from '../_commons/createTransaction.ts';
 
 const querySavingsByUser = (
     profile_id: z.infer<typeof ProfileIdSchema>,
@@ -97,9 +98,27 @@ export const getAllUserSavingsSummary = async (
     return result;
 };
 
-export const createWallet = async (
-    profile_id: z.infer<typeof ProfileIdSchema>,
-    walletData: z.infer<typeof SavingsMetadataInputSchema>,
+type CreateWalletType = {
+    (params: {
+        profile_id: z.infer<typeof ProfileIdSchema>;
+        walletData: z.infer<typeof SavingsMetadataInputSchema>;
+        profile_name: string;
+        profile_username: string;
+    }): Promise<{
+        metadata_id: string;
+        wallet_reference_id: string;
+        wallet_amounts_id: string;
+        wallet_owners_id: string;
+    }>;
+};
+
+export const createWallet: CreateWalletType = async (
+    {
+        profile_id,
+        walletData,
+        profile_name,
+        profile_username,
+    },
 ) => {
     const {
         name,
@@ -155,6 +174,20 @@ export const createWallet = async (
                 wallet_type: 'savings',
             })
             .executeTakeFirstOrThrow();
+
+        await createTransaction({
+            type: 'savings',
+            wallet_id: metadata_id,
+            action: 'create',
+            updated_by_name: `${profile_name} <${profile_username}>`,
+            updated_by_id: profile_id,
+            transaction: tx,
+            amount: 0,
+            category_id,
+            name,
+            preferred_currency_id,
+            wallet_owners: [profile_id],
+        });
 
         return {
             metadata_id,

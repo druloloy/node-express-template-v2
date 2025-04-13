@@ -20,8 +20,12 @@ type ResponseContent = {
     data?: ResponseData;
 };
 
-type User = SupabaseUser & {
-    profile_id: string;
+export type User = SupabaseUser & {
+    profile: {
+        id: string;
+        name: string;
+        username: string;
+    };
 };
 
 type Controller = (
