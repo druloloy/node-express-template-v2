@@ -8,6 +8,27 @@ import type {
 
 const router = Router();
 
+/**
+ * @openapi
+ * /v1:
+ *   get:
+ *     tags: [Health]
+ *     summary: Health check
+ *     responses:
+ *       200:
+ *         description: API is running
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: ok
+ *                 version:
+ *                   type: string
+ *                   example: v1
+ */
 router.get(
     '/',
     function (

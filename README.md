@@ -11,6 +11,7 @@ A Deno + Express boilerplate for building REST APIs with PostgreSQL, Supabase au
 | Database | PostgreSQL via [Kysely](https://kysely.dev) |
 | Auth | [Supabase](https://supabase.com) |
 | Validation | [Zod](https://zod.dev) |
+| API Docs | [swagger-jsdoc](https://github.com/Surnet/swagger-jsdoc) + [swagger-ui-express](https://github.com/scottie1984/swagger-ui-express) |
 | Logging | [Morgan](https://github.com/expressjs/morgan) |
 | Security | [Helmet](https://helmetjs.github.io), [express-rate-limit](https://github.com/express-rate-limit/express-rate-limit) |
 
@@ -43,6 +44,7 @@ A Deno + Express boilerplate for building REST APIs with PostgreSQL, Supabase au
 │   ├── middlewares/
 │   │   ├── index.ts           # Default middleware stack
 │   │   ├── auth.ts            # Supabase JWT authentication middleware
+│   │   ├── validate.ts        # Zod request validation middleware
 │   │   └── errorHandler.ts    # Global error handler
 │   ├── utils/
 │   │   ├── ApiError.ts        # Custom error class with HTTP status
@@ -50,7 +52,8 @@ A Deno + Express boilerplate for building REST APIs with PostgreSQL, Supabase au
 │   │   ├── get-routes.ts      # Dynamic route directory traversal
 │   │   ├── response.ts        # Uniform JSON response helper
 │   │   ├── server-handlers.ts # Unhandled rejection / graceful shutdown
-│   │   └── supabase.ts        # Supabase client factory
+│   │   ├── supabase.ts        # Supabase client factory
+│   │   └── swagger.ts         # Swagger spec generation + UI mounting
 │   ├── types.d.ts             # Shared TypeScript types
 │   ├── app.ts                 # Express app setup
 │   └── server.ts              # Entry point
@@ -111,6 +114,8 @@ deno task dev
 
 The server starts on the configured `PORT` (default: `5000`) with file watching enabled.
 
+On every startup, Swagger docs are regenerated and served at `http://localhost:<PORT>/docs`.
+
 ---
 
 ## Available Scripts
@@ -163,16 +168,59 @@ deno task gen-route --name posts --version 2
 
 The generated files follow this pattern:
 
-**`index.ts`** — Router with route definitions
+**`index.ts`** — Router with route definitions, validation, and OpenAPI docs
 
 ```typescript
 import { Router } from 'express';
+import { z } from 'zod';
 import { myController } from './controllers.ts';
 import { auth } from '../../../middlewares/auth.ts';
+import validate from '../../../middlewares/validate.ts';
 
 const router = Router();
 
+const createSchema = z.object({
+    name: z.string().min(1),
+});
+
+/**
+ * @openapi
+ * /v1/users:
+ *   get:
+ *     tags: [users]
+ *     summary: Get all users
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Success
+ *       401:
+ *         description: Unauthorized
+ *   post:
+ *     tags: [users]
+ *     summary: Create a user
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [name]
+ *             properties:
+ *               name:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Created
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized
+ */
 router.get('/', auth, myController);
+router.post('/', auth, validate({ body: createSchema }), myController);
 
 export default router;
 ```
@@ -199,6 +247,99 @@ export const myService = async (userId: string) => {
     return await db.selectFrom('users').where('id', '=', userId).selectAll().execute();
 };
 ```
+
+---
+
+## Validation
+
+Use the `validate` middleware to validate request inputs with Zod before they reach the controller. It accepts an object with optional `body`, `query`, and `params` schemas.
+
+```typescript
+import validate from '../../../middlewares/validate.ts';
+import { z } from 'zod';
+
+const bodySchema = z.object({
+    name: z.string().min(2).max(50),
+    email: z.string().email(),
+});
+
+const querySchema = z.object({
+    page: z.coerce.number().int().min(1).optional(),
+});
+
+const paramsSchema = z.object({
+    id: z.string().uuid(),
+});
+
+router.post('/', validate({ body: bodySchema }), myController);
+router.get('/:id', validate({ params: paramsSchema, query: querySchema }), myController);
+```
+
+When validation fails, a `400` response is returned automatically with the first failing field's message. No try/catch needed — Express 5 catches the thrown `ZodError` and routes it to the global error handler.
+
+---
+
+## API Documentation (Swagger)
+
+Swagger docs are **auto-generated on every server start** by scanning all `src/api/**/*.ts` files for `@openapi` JSDoc comments. No separate build step required.
+
+### Accessing the Docs
+
+```
+http://localhost:<PORT>/docs
+```
+
+### Writing OpenAPI Docs
+
+Add a `@openapi` JSDoc block directly above or near your route definition in `index.ts`:
+
+```typescript
+/**
+ * @openapi
+ * /v1/users/{id}:
+ *   get:
+ *     tags: [users]
+ *     summary: Get a user by ID
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       200:
+ *         description: User found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 id:
+ *                   type: string
+ *                 name:
+ *                   type: string
+ *       404:
+ *         description: Not found
+ *       401:
+ *         description: Unauthorized
+ */
+router.get('/:id', auth, validate({ params: paramsSchema }), myController);
+```
+
+### Authentication in Swagger UI
+
+Protected endpoints use `bearerAuth`. In the Swagger UI, click **Authorize** and paste your access token (without the `Bearer` prefix). Get a token with:
+
+```sh
+deno task get-token --email test@example.com --password secret123
+```
+
+### Customizing the Spec Info
+
+Update the `swaggerOptions.definition` in `src/utils/swagger.ts` to set the API title, version, and description for your project.
 
 ---
 
@@ -337,8 +478,8 @@ Response shape:
 ## Coding Conventions
 
 - **Separation of concerns**: routes in `index.ts`, request handling in `controllers.ts`, business/DB logic in `services.ts`.
-- **No inline logic in routes**: route files only wire up controllers and middleware.
+- **No inline logic in routes**: route files only wire up controllers, middleware, and OpenAPI docs.
 - **Controllers never query the database directly**: all DB access goes through services.
-- **Validation at the boundary**: use Zod schemas in controllers before passing data to services.
+- **Validation at the boundary**: use `validate()` in the route before the controller, keep schemas in `index.ts`.
 - **Naming**: functions and variables use `camelCase`, files use `kebab-case`.
 - **Formatting**: enforced by `deno fmt` (4-space indent, single quotes, semicolons, 80-char line width).

@@ -23,7 +23,11 @@
         "kysely-ctl": "npm:kysely-ctl@^0.12.1",
         "morgan": "npm:morgan@^1.10.0",
         "pg": "npm:pg@^8.14.1",
-        "zod": "npm:zod@^3.24.2"
+        "zod": "npm:zod@^3.24.2",
+        "swagger-jsdoc": "npm:swagger-jsdoc@^6.2.8",
+        "swagger-ui-express": "npm:swagger-ui-express@^5.0.1",
+        "@types/swagger-jsdoc": "npm:@types/swagger-jsdoc@^6.0.4",
+        "@types/swagger-ui-express": "npm:@types/swagger-ui-express@^4.1.8"
     },
     "fmt": {
         "indentWidth": 4,
