@@ -1,13 +1,13 @@
 import { Controller } from '../../../types.d.ts';
-import { defaultRouterService } from './controllers.ts';
+import { defaultRouterService } from './services.ts';
 import { createResponse } from '../../../utils/response.ts';
 
-export const defaultRouterController: Controller = async (req, res, next) => {
+export const defaultRouterController: Controller = async (_req, res, _next) => {
     const result = await defaultRouterService();
 
     return createResponse(res, {
         data: result,
-        message: 'Default Router Service',
+        message: 'Success',
         status: 200,
     });
 };

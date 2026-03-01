@@ -20,13 +20,7 @@ type ResponseContent = {
     data?: ResponseData;
 };
 
-export type User = SupabaseUser & {
-    profile: {
-        id: string;
-        name: string;
-        username: string;
-    };
-};
+export type User = SupabaseUser;
 
 type Controller = (
     req: ExpressRequest & { user?: User },

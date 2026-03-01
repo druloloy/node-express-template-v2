@@ -10,8 +10,12 @@ const router = Router();
 
 router.get(
     '/',
-    function (req: ExpressRequest, res: ExpressResponse, next: NextFunction) {
-        res.send('Hello World!');
+    function (
+        _req: ExpressRequest,
+        res: ExpressResponse,
+        _next: NextFunction,
+    ) {
+        res.json({ status: 'ok', version: 'v1' });
     },
 );
 
