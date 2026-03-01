@@ -1,10 +1,5 @@
 // #!/usr/bin/env -S deno run --allow-env --allow-write --allow-read
 
-/**
- * This script is used to create a folder structure for a new route
- * It will create a folder for the route, and the files for the route
- */
-
 import { parseArgs } from 'jsr:@std/cli/parse-args';
 
 const flags = parseArgs(Deno.args, {
@@ -27,37 +22,21 @@ if (version < 1 || isNaN(version)) {
 }
 
 const name = flags.name;
+const routesPath = `./src/api/v${version}`;
 
-const routesPath = './src/api/v' + version;
-
-// check if folder exists
 if (!checkFolderExists(routesPath)) {
     Deno.mkdirSync(routesPath);
-    const contents = replaceInFileText(
-        './bin/defaults/router/index.ts',
-        '%%router_name%%',
-        `v${version}`,
-    );
     Deno.writeFileSync(
         `${routesPath}/index.ts`,
-        new TextEncoder().encode(contents),
+        new TextEncoder().encode(buildVersionIndex(version)),
     );
 }
 
-// create route folder
 const routePath = `${routesPath}/${name}`;
+
 if (!checkFolderExists(routePath)) {
     Deno.mkdirSync(routePath);
-
-    // create route files
-    const routeFiles = [
-        'index.ts',
-        'services.ts',
-        'controllers.ts',
-    ];
-
-    copyDefaultFiles(routeFiles, routePath);
-
+    copyDefaultFiles(['index.ts', 'services.ts', 'controllers.ts'], routePath);
     console.log(`Created route: ${routePath}`);
 } else {
     console.error(`%cRoute already exists: ${routePath}`, 'color: red');
@@ -71,10 +50,12 @@ if (!checkFolderExists(routePath)) {
 function copyDefaultFiles(files: string[], routePath: string) {
     files.forEach((file) => {
         if (file === 'index.ts') {
-            const contents = replaceInFileText(
+            const contents = applyReplacements(
                 './bin/defaults/router/index.ts',
-                '%%router_name%%',
-                `v${version}/${name}`,
+                {
+                    '%%router_path%%': `/api/v${version}/${name}`,
+                    '%%router_name%%': name,
+                },
             );
             Deno.writeFileSync(
                 `${routePath}/${file}`,
@@ -90,25 +71,61 @@ function copyDefaultFiles(files: string[], routePath: string) {
     });
 }
 
+function applyReplacements(
+    filepath: string,
+    replacements: Record<string, string>,
+): string {
+    let content = Deno.readTextFileSync(filepath);
+    for (const [find, replace] of Object.entries(replacements)) {
+        content = content.replaceAll(find, replace);
+    }
+    return content;
+}
+
+function buildVersionIndex(v: number): string {
+    return `// @deno-types="npm:@types/express@5.0.0"
+import { Router } from 'express';
+import type {
+    NextFunction,
+    Request as ExpressRequest,
+    Response as ExpressResponse,
+} from 'express';
+
+const router = Router();
+
+/**
+ * @openapi
+ * /api/v${v}:
+ *   get:
+ *     tags: [Health]
+ *     summary: v${v} health check
+ *     responses:
+ *       200:
+ *         description: API v${v} is running
+ */
+router.get(
+    '/',
+    function (
+        _req: ExpressRequest,
+        res: ExpressResponse,
+        _next: NextFunction,
+    ) {
+        res.json({ status: 'ok', version: 'v${v}' });
+    },
+);
+
+export default router;
+`;
+}
+
 function checkFolderExists(dir: string): boolean {
     try {
         Deno.statSync(dir);
-        // successful, file or directory must exist
         return true;
     } catch (error) {
         if (error instanceof Deno.errors.NotFound) {
-            // file or directory does not exist
             return false;
-        } else {
-            // unexpected error, maybe permissions, pass it along
-            throw error;
         }
+        throw error;
     }
-}
-
-function replaceInFileText(filepath: string, find: string, replace: string) {
-    const file = Deno.readTextFileSync(filepath);
-    const newFile = file.replace(find, replace);
-
-    return newFile;
 }

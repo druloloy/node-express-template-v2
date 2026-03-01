@@ -12,7 +12,7 @@ const createSchema = z.object({
 
 /**
  * @openapi
- * /v1/%%router_name%%:
+ * %%router_path%%:
  *   get:
  *     tags: [%%router_name%%]
  *     summary: Get all %%router_name%%
